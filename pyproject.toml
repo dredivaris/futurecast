@@ -10,6 +10,7 @@ dependencies = [
     "asyncio",
     "aiohttp",
     "tqdm",
+    "streamlit-markmap",
 ]
 
 [project.optional-dependencies]

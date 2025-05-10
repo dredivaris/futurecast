@@ -61,6 +61,31 @@ def display_effects_by_order(tree: PredictionTree) -> None:
         st.markdown("---")
 
 
+def convert_tree_to_markmap(tree: PredictionTree) -> str:
+    """
+    Convert a PredictionTree to a hierarchical Markdown format for markmap.
+
+    Args:
+        tree: The prediction tree.
+
+    Returns:
+        A Markdown string representing the mindmap.
+    """
+    markdown = [f"# {tree.context}\n\n"]
+
+    def add_effect(effect: Effect, level: int) -> None:
+        prefix = "#" * (level + 1)
+        markdown.append(f"{prefix} {effect.content}\n\n")
+
+        for child in effect.children:
+            add_effect(child, level + 1)
+
+    for root_effect in tree.root_effects:
+        add_effect(root_effect, 1)
+
+    return "".join(markdown)
+
+
 def run_app() -> None:
     """
     Run the Streamlit app.
@@ -181,7 +206,7 @@ def run_app() -> None:
         st.header("Results")
 
         # Create tabs for different views
-        tab1, tab2, tab3 = st.tabs(["Summary", "Effects by Order", "Tree View"])
+        tab1, tab2, tab3, tab4 = st.tabs(["Summary", "Effects by Order", "Tree View", "Mind Map"])
 
         with tab1:
             st.subheader("Summary")
@@ -195,6 +220,24 @@ def run_app() -> None:
             st.subheader("Tree View")
             for effect in st.session_state.prediction_tree.root_effects:
                 display_effect(effect)
+
+        with tab4:
+            st.subheader("Mind Map")
+
+            try:
+                # Import the markmap component
+                from streamlit_markmap import markmap
+
+                # Convert the tree to markmap format
+                markmap_markdown = convert_tree_to_markmap(st.session_state.prediction_tree)
+
+                # Display the mindmap
+                markmap(markmap_markdown)
+            except ImportError:
+                st.error(
+                    "The streamlit-markmap package is not installed. "
+                    "Please install it with: uv pip install streamlit-markmap"
+                )
 
 
 if __name__ == "__main__":
