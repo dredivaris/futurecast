@@ -1,0 +1,24 @@
+[project]
+name = "futurecast-augment"
+version = "0.1.0"
+description = "A prediction app that recursively makes LLM calls to analyze effects of contextual events"
+requires-python = ">=3.8"
+dependencies = [
+    "google-generativeai",
+    "streamlit",
+    "python-dotenv",
+    "asyncio",
+    "aiohttp",
+    "tqdm",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "black",
+    "isort",
+]
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
