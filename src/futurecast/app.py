@@ -3,6 +3,7 @@ Streamlit web interface for the prediction app.
 """
 import asyncio
 import os
+from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
 import streamlit as st
@@ -11,6 +12,7 @@ from dotenv import load_dotenv
 from .config import Config
 from .models import Effect, PredictionTree
 from .prediction_engine import PredictionEngine
+from .utils import debug_log, save_futurecast, load_futurecast
 
 
 # Load environment variables
@@ -71,7 +73,9 @@ def convert_tree_to_markmap(tree: PredictionTree) -> str:
     Returns:
         A Markdown string representing the mindmap.
     """
-    markdown = [f"# {tree.context}\n\n"]
+    # Simple markdown without frontmatter for better compatibility
+    frontmatter = ""
+    markdown = [frontmatter, f"# {tree.context}\n\n"]
 
     def add_effect(effect: Effect, level: int) -> None:
         prefix = "#" * (level + 1)
@@ -108,6 +112,9 @@ def run_app() -> None:
             "Gemini API key not found. Please set the GEMINI_API_KEY environment variable."
         )
         st.stop()
+
+    # Check if we're loading a preloaded futurecast
+    is_preloaded = os.getenv("FUTURECAST_PRELOADED", "").lower() == "true"
 
     # Create sidebar for configuration
     with st.sidebar:
@@ -158,22 +165,46 @@ def run_app() -> None:
 
             enable_caching = st.checkbox("Enable caching", value=True)
 
+    # Initialize session state
+    if "prediction_tree" not in st.session_state:
+        st.session_state.prediction_tree = None
+    if "summary" not in st.session_state:
+        st.session_state.summary = None
+    if "context" not in st.session_state:
+        st.session_state.context = ""
+
+    # Check if we should load a preloaded futurecast
+    if is_preloaded and st.session_state.prediction_tree is None:
+        preloaded_context = os.getenv("FUTURECAST_CONTEXT", "")
+        preloaded_summary = os.getenv("FUTURECAST_SUMMARY", "")
+        preloaded_tree_path = os.getenv("FUTURECAST_TREE", "")
+
+        # Load the futurecast
+        result = load_futurecast(preloaded_tree_path if preloaded_tree_path != "latest" else None)
+        if result:
+            tree, summary = result
+            st.session_state.prediction_tree = tree
+            st.session_state.summary = summary
+
+            # Pre-fill the context field
+            st.session_state.context = tree.context
+
+            # Show a message
+            st.success("Loaded saved futurecast. No LLM calls were made.")
+
     # Create main input area
     st.header("Input")
+
+    # Use the context from session state
     context = st.text_area(
         "Enter a contextual event",
+        value=st.session_state.context,
         height=100,
         placeholder="Example: A major technological breakthrough allows for the cost-effective removal of carbon dioxide from the atmosphere at scale.",
     )
 
     # Create button to generate prediction
     generate_button = st.button("Generate Prediction", type="primary")
-
-    # Initialize session state
-    if "prediction_tree" not in st.session_state:
-        st.session_state.prediction_tree = None
-    if "summary" not in st.session_state:
-        st.session_state.summary = None
 
     # Generate prediction when button is clicked
     if generate_button and context:
@@ -201,6 +232,11 @@ def run_app() -> None:
             st.session_state.prediction_tree = tree
             st.session_state.summary = summary
 
+            # Save the futurecast to a file
+            save_path = save_futurecast(tree, summary)
+            st.session_state.last_saved_path = str(save_path)
+            debug_log(f"Saved futurecast to {save_path}")
+
     # Display results if available
     if st.session_state.prediction_tree and st.session_state.summary:
         st.header("Results")
@@ -225,19 +261,56 @@ def run_app() -> None:
             st.subheader("Mind Map")
 
             try:
-                # Import the markmap component
+                # Use the streamlit-markmap component directly
                 from streamlit_markmap import markmap
 
                 # Convert the tree to markmap format
                 markmap_markdown = convert_tree_to_markmap(st.session_state.prediction_tree)
 
-                # Display the mindmap
-                markmap(markmap_markdown)
-            except ImportError:
-                st.error(
-                    "The streamlit-markmap package is not installed. "
-                    "Please install it with: uv pip install streamlit-markmap"
-                )
+                # Add CSS to improve the markmap display - apply to the whole page
+                st.markdown("""
+                <style>
+                /* Make the markmap container taller and ensure it's visible */
+                iframe.stMarkmap, iframe.stComponent-iframe {
+                    min-height: 800px !important;
+                    height: 800px !important;
+                    width: 100% !important;
+                    border: none !important;
+                    margin-top: 0 !important;
+                    padding-top: 0 !important;
+                    position: relative !important;
+                    top: 0 !important;
+                    transform: translateY(0) !important;
+                }
+
+                /* Ensure the container is tall enough */
+                [data-testid="stVerticalBlock"] > div:has(iframe) {
+                    min-height: 850px !important;
+                    height: 850px !important;
+                }
+
+                /* Make the tab content taller */
+                .stTabs [data-baseweb="tab-panel"] {
+                    min-height: 900px !important;
+                }
+
+                /* Adjust the overall layout */
+                .main .block-container {
+                    padding-top: 1rem !important;
+                    padding-bottom: 1rem !important;
+                    max-width: 100% !important;
+                }
+                </style>
+                """, unsafe_allow_html=True)
+
+                # Display the markmap with a larger height for better visibility
+                markmap(markmap_markdown, height=1000)
+
+                # Add a note about the mind map functionality
+                st.info("Note: You can expand and collapse nodes by clicking on them. You can also zoom in/out and pan around the mind map.")
+
+            except Exception as e:
+                st.error(f"Error displaying mind map: {str(e)}")
 
 
 if __name__ == "__main__":

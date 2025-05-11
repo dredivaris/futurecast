@@ -19,6 +19,8 @@ FutureCast is a tool that helps you explore the potential cascading effects of e
 - Caching to improve performance and reduce API costs
 - Parallel API calls for faster generation
 - Comprehensive summaries that integrate all predicted effects
+- Automatic saving of generated futurecasts
+- Command-line interface for loading saved futurecasts without making LLM calls
 
 ## Installation
 
@@ -48,13 +50,38 @@ FutureCast is a tool that helps you explore the potential cascading effects of e
 
 ## Usage
 
-### Running the Web Interface
+### Command Line Interface
 
+FutureCast provides a command-line interface with the following commands:
+
+1. Run the web application (default if no command is specified):
+   ```
+   python src/main.py
+   ```
+   or explicitly:
+   ```
+   python src/main.py app
+   ```
+
+2. Load a previously saved futurecast without making LLM calls:
+   ```
+   python src/main.py load
+   ```
+   This will load the most recently saved futurecast.
+
+   You can also specify a specific futurecast file to load:
+   ```
+   python src/main.py load --file /path/to/futurecast_20230101_120000.json
+   ```
+
+### Saved Futurecasts
+
+FutureCasts are automatically saved to the following location:
 ```
-streamlit run src/main.py
+~/.futurecast/saved/
 ```
 
-This will start the Streamlit web interface, which you can access in your browser.
+Each futurecast is saved with a timestamp in the filename, and the most recent futurecast is also saved as `latest.json` for easy access.
 
 ### Configuration
 
@@ -72,3 +99,4 @@ You can configure the following parameters in the web interface:
 
 MIT
 
+y

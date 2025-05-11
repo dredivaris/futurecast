@@ -2,17 +2,20 @@
 Utility functions for the prediction app.
 """
 import asyncio
+import datetime
 import hashlib
 import json
 import os
 import sys
 import time
 from functools import lru_cache
+from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 import google.generativeai as genai
 
 from .config import Config
+from .models import PredictionTree
 
 
 def debug_log(message: str) -> None:
@@ -381,3 +384,88 @@ def parse_effects_list(text: str) -> List[str]:
             effects.append(line)
 
     return effects
+
+
+def get_futurecasts_dir() -> Path:
+    """
+    Get the directory for saved futurecasts.
+
+    Returns:
+        The directory path.
+    """
+    # Create a directory in the user's home directory
+    futurecasts_dir = Path.home() / ".futurecast" / "saved"
+    futurecasts_dir.mkdir(parents=True, exist_ok=True)
+    return futurecasts_dir
+
+
+def save_futurecast(tree: PredictionTree, summary: str) -> Path:
+    """
+    Save a futurecast to a file.
+
+    Args:
+        tree: The prediction tree.
+        summary: The summary text.
+
+    Returns:
+        The path to the saved file.
+    """
+    # Create a timestamp for the filename
+    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+
+    # Create the data to save
+    data = {
+        "tree": tree.to_dict(),
+        "summary": summary,
+        "timestamp": timestamp,
+        "version": "0.1.0"
+    }
+
+    # Save to file
+    futurecasts_dir = get_futurecasts_dir()
+    filepath = futurecasts_dir / f"futurecast_{timestamp}.json"
+
+    with open(filepath, "w") as f:
+        json.dump(data, f, indent=2)
+
+    # Also save as latest.json for easy access
+    latest_path = futurecasts_dir / "latest.json"
+    with open(latest_path, "w") as f:
+        json.dump(data, f, indent=2)
+
+    debug_log(f"Saved futurecast to {filepath}")
+    return filepath
+
+
+def load_futurecast(filepath: Optional[str] = None) -> Optional[Tuple[PredictionTree, str]]:
+    """
+    Load a futurecast from a file.
+
+    Args:
+        filepath: The path to the file, or None to load the latest.
+
+    Returns:
+        A tuple of (prediction_tree, summary), or None if the file doesn't exist.
+    """
+    if filepath is None:
+        # Load the latest futurecast
+        filepath = get_futurecasts_dir() / "latest.json"
+    else:
+        filepath = Path(filepath)
+
+    if not filepath.exists():
+        debug_log(f"Futurecast file not found: {filepath}")
+        return None
+
+    try:
+        with open(filepath, "r") as f:
+            data = json.load(f)
+
+        tree = PredictionTree.from_dict(data["tree"])
+        summary = data["summary"]
+
+        debug_log(f"Loaded futurecast from {filepath}")
+        return tree, summary
+    except (json.JSONDecodeError, KeyError, OSError) as e:
+        debug_log(f"Error loading futurecast: {e}")
+        return None
