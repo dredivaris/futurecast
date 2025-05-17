@@ -1,3 +1,4 @@
+from dataclasses import field
 """
 Configuration management for the prediction app.
 """
@@ -19,7 +20,8 @@ class Config:
     """
     # API settings
     api_key: str = os.getenv("GEMINI_API_KEY", "")
-    model_name: str = "gemini-2.0-flash"
+    available_models: list[str] = field(default_factory=lambda: ["gemini-1.0-pro", "gemini-1.5-pro-latest", "gemini-1.5-flash-latest", "gemini-2.0-flash", "gemini-2.5-flash-preview-04-17"])
+    model_name: Optional[str] = None # Default set in __post_init__ if None
     
     # Prediction settings
     num_effects: int = 5  # Default number of effects per level
@@ -34,15 +36,25 @@ class Config:
     temperature: float = 0.7
     top_p: float = 0.95
     top_k: int = 40
-    
+
+    def __post_init__(self):
+        if not hasattr(self, 'model_name') or not self.model_name: # Check if model_name is already set (e.g. by from_env)
+            if self.available_models:
+                self.model_name = self.available_models[0]
+            else:
+                # This case should ideally not happen if available_models has a default factory
+                self.model_name = "gemini-2.0-flash" # Fallback if list is empty
+
     @classmethod
     def from_env(cls) -> "Config":
         """
         Create a Config instance from environment variables.
         """
-        return cls(
+        # available_models could also be loaded from ENV if needed, e.g., as a comma-separated string
+        # For now, we use the default_factory list.
+        config = cls(
             api_key=os.getenv("GEMINI_API_KEY", ""),
-            model_name=os.getenv("GEMINI_MODEL", "gemini-2.0-flash"),
+            # model_name is set in __post_init__ or overridden by GEMINI_MODEL
             num_effects=int(os.getenv("NUM_EFFECTS", "5")),
             max_depth=int(os.getenv("MAX_DEPTH", "3")),
             max_parallel_calls=int(os.getenv("MAX_PARALLEL_CALLS", "5")),
@@ -52,6 +64,18 @@ class Config:
             top_p=float(os.getenv("TOP_P", "0.95")),
             top_k=int(os.getenv("TOP_K", "40")),
         )
+        # Override model_name if GEMINI_MODEL is set
+        env_model_name = os.getenv("GEMINI_MODEL")
+        if env_model_name:
+            if env_model_name not in config.available_models:
+                # Optionally, add it to available_models or raise an error/warning
+                # For now, we'll allow it but it won't be in the "selectable" list unless added there
+                pass
+            config.model_name = env_model_name
+        elif not config.model_name and config.available_models: # if not set by env and __post_init__ didn't set (e.g. if available_models was empty then)
+             config.model_name = config.available_models[0]
+
+        return config
     
     def validate(self) -> Optional[str]:
         """
@@ -62,6 +86,14 @@ class Config:
         """
         if not self.api_key:
             return "API key is required. Please set the GEMINI_API_KEY environment variable."
+
+        if not self.available_models:
+            return "Available models list cannot be empty."
+
+        if self.model_name not in self.available_models and not os.getenv("GEMINI_MODEL"):
+             # Only raise error if model_name is not in available_models AND it wasn't set by an environment variable
+             # This allows users to use a model via ENV var even if it's not in the default list
+            return f"Selected model_name '{self.model_name}' is not in the list of available_models: {self.available_models}."
         
         if self.num_effects <= 0:
             return "Number of effects must be positive."

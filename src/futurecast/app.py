@@ -73,7 +73,7 @@ def convert_tree_to_markmap(tree: PredictionTree) -> str:
     Returns:
         A Markdown string representing the mindmap.
     """
-    # Simple markdown without frontmatter for better compatibility
+    # No frontmatter needed as it's added by the markmap component
     frontmatter = ""
     markdown = [frontmatter, f"# {tree.context}\n\n"]
 
@@ -121,10 +121,12 @@ def run_app() -> None:
         st.header("Configuration")
 
         # Model selection
+        # Use available_models from Config
+        config_for_models = Config.from_env() # Create a temporary config to get available_models
         model_name = st.selectbox(
             "Model",
-            options=["gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-pro"],
-            index=0,
+            options=config_for_models.available_models,
+            index=0, # Default to the first model in the list
         )
 
         # Number of effects
@@ -144,6 +146,17 @@ def run_app() -> None:
             value=3,
             step=1,
         )
+
+        # Calculate and display total LLM calls
+        if num_effects == 1:
+            total_calls = 1 + max_depth
+        else:
+            total_calls = 1 + num_effects * (num_effects**max_depth - 1) // (num_effects - 1)
+        
+        st.markdown(f"**Estimated LLM Calls:** `{total_calls}`")
+        st.caption("Includes initial prompt and all effect generation calls.")
+        st.markdown("---")
+
 
         # Advanced settings
         with st.expander("Advanced Settings"):
