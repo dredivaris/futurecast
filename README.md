@@ -56,12 +56,14 @@ FutureCast provides a command-line interface with the following commands:
 
 1. Run the web application (default if no command is specified):
    ```
+   streamlit run src/main.py
+   ```
+   or using Python directly:
+   ```
    python src/main.py
    ```
-   or explicitly:
-   ```
-   python src/main.py app
-   ```
+
+This will start the Streamlit web interface where you can enter your scenario and generate predictions.
 
 2. Load a previously saved futurecast without making LLM calls:
    ```
@@ -98,5 +100,3 @@ You can configure the following parameters in the web interface:
 ## License
 
 MIT
-
-y
