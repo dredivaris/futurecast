@@ -20,7 +20,7 @@ class Config:
     """
     # API settings
     api_key: str = os.getenv("GEMINI_API_KEY", "")
-    available_models: list[str] = field(default_factory=lambda: ["gemini-1.0-pro", "gemini-1.5-pro-latest", "gemini-1.5-flash-latest", "gemini-2.0-flash", "gemini-2.5-flash-preview-04-17"])
+    available_models: list[str] = field(default_factory=lambda: ["gemini-1.5-flash-latest", "gemini-1.5-pro-latest",  "gemini-2.0-flash", "gemini-2.5-flash-preview-04-17"])
     model_name: Optional[str] = field(default=None, init=False) # Not an init arg, __post_init__ can set default
     
     # Prediction settings

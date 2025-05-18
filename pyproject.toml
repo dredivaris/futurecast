@@ -2,6 +2,20 @@
 name = "futurecast-augment"
 version = "0.1.0"
 description = "A prediction app that recursively makes LLM calls to analyze effects of contextual events"
+readme = "README.md"
+authors = [
+    {name = "FutureCast", email = "contact@example.com"}
+]
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
 requires-python = ">=3.8"
 dependencies = [
     "google-generativeai",
