@@ -1,6 +1,6 @@
 # src/futurecast/chatbot/action_dispatcher.py
 import logging
-from typing import TYPE_CHECKING, Dict, Any
+from typing import TYPE_CHECKING, Dict, Any, List
 
 from .state_manager import StateManager
 from .nlu_processor import NLUProcessor
@@ -38,17 +38,19 @@ class ActionDispatcher:
         self.llm_interaction = llm_interaction
         self.prediction_engine_interface = prediction_engine_interface # Added assignment
 
-    def dispatch(self, user_input: str) -> str:
+    def dispatch(self, user_query: str, chat_history: List[Dict[str, Any]]) -> str:
         """
-        Processes user input, determines action, and returns a response.
+        Processes user query, determines action, and returns a response.
+        The user's message is assumed to be already added to the chat_history.
+        This method is responsible for adding the assistant's response to chat_history.
         """
-        self.state_manager.add_chat_message(role="user", content=user_input)
+        # User message is now added in app.py before calling dispatch.
         
-        intent_data: Dict[str, Any] = self.nlu_processor.process_input(user_input)
+        intent_data: Dict[str, Any] = self.nlu_processor.process_input(user_query)
         intent: str = intent_data.get("intent", "unknown")
         entities: Dict[str, Any] = intent_data.get("entities", {})
         
-        logger.info(f"Dispatching action for intent: {intent}, entities: {entities}")
+        logger.info(f"Dispatching action for intent: {intent}, entities: {entities}, using provided chat history (len: {len(chat_history)})")
         assistant_response: str
 
         if intent == "get_prompt":
@@ -130,7 +132,7 @@ class ActionDispatcher:
                     logger.warning(f"Failed to expand effect '{effect_id}' via PredictionEngineInterface. It might not be a leaf or not exist.")
         elif intent == "ask_general_question":
             full_context = self.state_manager.get_full_context()
-            assistant_response = self.llm_interaction.answer_question(context=full_context, question=user_input)
+            assistant_response = self.llm_interaction.answer_question(context=full_context, question=user_query)
         elif intent == "unknown":
             assistant_response = "I'm not sure how to help with that. Can you try rephrasing?"
         else: # Handles any other unrecognized intents as per the plan

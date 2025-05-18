@@ -1,5 +1,6 @@
 # src/futurecast/chatbot/state_manager.py
 import logging
+import uuid # Added import
 from dataclasses import dataclass, field
 from typing import List, Dict, Any, Optional
 
@@ -11,7 +12,7 @@ class StateManager:
     futurecast_prompt: Optional[str] = None
     effect_tree: Optional[Dict[str, Any]] = None
     futurecast_summary: Optional[str] = None
-    chat_history: List[Dict[str, str]] = field(default_factory=list)
+    chat_history: List[Dict[str, Any]] = field(default_factory=list) # Changed type hint for chat_history
 
     def load_futurecast_data(self, prompt: str, tree: Dict[str, Any], summary: str) -> None:
         """Loads the initial FutureCast data."""
@@ -19,7 +20,7 @@ class StateManager:
         self.effect_tree = tree
         self.futurecast_summary = summary
         # Initialize chat history with a system message indicating data load
-        self.chat_history = [{"role": "system", "content": "FutureCast data has been loaded."}]
+        self.chat_history = [{"role": "system", "content": "FutureCast data has been loaded.", "id": str(uuid.uuid4())}]
 
     def add_chat_message(self, role: str, content: str) -> None:
         """Adds a message to the chat history."""
@@ -28,7 +29,7 @@ class StateManager:
             logger.warning(f"Invalid role '{role}' used for chat message: '{content}'")
             # Optionally, one might choose to not add the message or raise an error.
             # For now, we log a warning and still add it.
-        self.chat_history.append({"role": role, "content": content})
+        self.chat_history.append({"role": role, "content": content, "id": str(uuid.uuid4())})
 
     def get_full_context(self) -> str:
         """

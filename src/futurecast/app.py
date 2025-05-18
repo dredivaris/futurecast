@@ -202,9 +202,10 @@ def run_app() -> None:
         st.session_state.prediction_engine_interface = None
     if 'chat_history' not in st.session_state: # Initialize chat_history in state_manager
         st.session_state.state_manager.chat_history = []
+    # Removed skip_last_bot_message_in_loop initialization
 
 
-    # Check if we should load a preloaded futurecast
+# Check if we should load a preloaded futurecast
     if is_preloaded and st.session_state.prediction_tree is None:
         preloaded_context = os.getenv("FUTURECAST_CONTEXT", "")
         preloaded_summary = os.getenv("FUTURECAST_SUMMARY", "")
@@ -457,9 +458,12 @@ def run_app() -> None:
         tab1, tab2, tab3, tab4 = st.tabs(["Summary", "Effects by Order", "Tree View", "Mind Map"])
 
         with tab1:
+            st.write("DEBUG: APP - Rendering Summary Subheader")
             st.subheader("Summary")
+            st.write(f"DEBUG: APP - Summary content (first 100 chars): {str(st.session_state.summary)[:100]}")
             st.markdown(st.session_state.summary)
 
+            st.write("DEBUG: APP - Rendering Chatbot Subheader")
             st.subheader("Results Chatbot")
 
             # Ensure chatbot components are initialized, especially if config was not available earlier
@@ -508,39 +512,66 @@ def run_app() -> None:
                not st.session_state.state_manager.effect_tree or \
                not st.session_state.state_manager.futurecast_summary:
                 st.info("Please generate or load a futurecast first to use the chatbot.")
+                # Removed: chat_history_placeholder.empty()
             elif 'action_dispatcher' in st.session_state and 'nlu_processor' in st.session_state:
-                # Display chat history
-                for message in st.session_state.state_manager.chat_history:
-                    with st.chat_message(message["role"]):
-                        st.write(message["content"])
+                # Direct rendering of chat history
+                st.write(f"DEBUG: APP - Before chat history loop. Messages: {len(st.session_state.state_manager.chat_history) if hasattr(st.session_state.state_manager, 'chat_history') else 'N/A'}")
+                if "state_manager" in st.session_state and hasattr(st.session_state.state_manager, "chat_history"):
+                    for msg_data in st.session_state.state_manager.chat_history: # Removed enumerate, i is not used
+                        msg_id = msg_data.get("id")
+                        if not msg_id:
+                            st.error(f"Critical Error: Chat message is missing 'id'. Content: {msg_data.get('content', '')[:50]}...")
+                            continue
 
-                # Chat input
-                user_input = st.chat_input("Ask something about the results...")
-                if user_input:
-                    # Display user message immediately
-                    with st.chat_message("user"):
-                        st.write(user_input)
+                        role = msg_data.get("role", "unknown")
+                        content = msg_data.get("content", "") # Ensure content is retrieved
+                        
+                        avatar_emoji = "👤" if role == "user" else "🤖"
+                        
+                        # Key for the st.chat_message bubble itself
+                        chat_bubble_key = msg_id
+                        with st.chat_message(name=role, avatar=avatar_emoji):
+                            st.markdown(content) # REMOVED key from st.markdown
 
-                    # Determine intent to decide if a spinner is needed
-                    intent_data = st.session_state.nlu_processor.process_input(user_input)
+                # Chat input (existing logic)
+                st.write("DEBUG: APP - After chat history loop, before chat_input.")
+                chat_input_placeholder = st.empty()
+                with chat_input_placeholder.container():
+                    prompt = st.chat_input("Ask the chatbot about the results...", key="chat_input_widget")
+                
+                if prompt:
+                    # Ensure user's message is added to history
+                    st.session_state.state_manager.add_chat_message(
+                        role="user",
+                        content=prompt
+                        # id and timestamp are handled by add_chat_message
+                    )
+
+                    # User message will be rendered by the main history loop after st.rerun()
+
+                    # Determine intent for spinner
+                    intent_data = st.session_state.nlu_processor.process_input(prompt)
                     intent = intent_data.get("intent", "unknown")
                     
-                    bot_response = ""
                     if intent in ["modify_effect", "expand_effect"]:
                         with st.spinner("Processing your request to modify/expand the effect tree..."):
-                            bot_response = st.session_state.action_dispatcher.dispatch(user_input)
+                            # Call the modified dispatch method
+                            st.session_state.action_dispatcher.dispatch(
+                                user_query=prompt,
+                                chat_history=st.session_state.state_manager.chat_history
+                            )
                     else:
-                        # For other intents, process without a specific spinner message here
-                        # (LLM calls might still take time but are less directly "tree modification")
-                        bot_response = st.session_state.action_dispatcher.dispatch(user_input)
+                        # Call the modified dispatch method
+                        st.session_state.action_dispatcher.dispatch(
+                            user_query=prompt,
+                            chat_history=st.session_state.state_manager.chat_history
+                        )
 
-                    # Display bot response (already added to history by dispatcher)
-                    with st.chat_message("assistant"):
-                        st.write(bot_response)
-                    # Rerun to ensure the chat history (managed by StateManager) is fully updated in the UI
+                    # Explicitly call st.rerun() here, AFTER all history updates are complete
                     st.rerun()
             else:
                 st.warning("Chatbot is not available. Ensure a FutureCast is generated/loaded and all components are initialized.")
+                # Removed: chat_history_placeholder logic
 
         with tab2:
             st.subheader("Effects by Order")
